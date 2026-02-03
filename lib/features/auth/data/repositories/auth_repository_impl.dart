@@ -200,13 +200,31 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Left(AuthFailure(message: 'Sign up failed'));
       }
 
-      // Email confirmation required: no session until user verifies
-      // Never allow access without email confirmation
+      // EMAIL CONFIRMATION FLOW:
+      // ========================
+      // REQUIRED SETUP: Enable email confirmation in Supabase dashboard
+      // (Auth → Providers → Email → Enable "Confirm email")
+      //
+      // When email confirmation is enabled:
+      // - response.session will be NULL after sign up
+      // - User MUST verify email before they can sign in
+      // - Verification email contains link with token
+      // - After clicking link, user can sign in normally
+      //
+      // When email confirmation is disabled (NOT recommended):
+      // - response.session will be present immediately
+      // - User can access app without verification
+      //
+      // This app REQUIRES email confirmation for security
       if (response.session == null) {
+        // Expected behavior: user needs to verify email
         return Left(AuthFailure.emailVerificationRequired());
       }
 
-      // Session exists - create local user and sign in
+      // If we reach here, either:
+      // 1. Email confirmation is disabled in Supabase (not recommended)
+      // 2. User clicked verification link and is auto-signed in
+      // Create local user and proceed
       await _localDataSource.saveTokens(
         accessToken: response.session!.accessToken,
         refreshToken: response.session!.refreshToken ?? '',

@@ -135,25 +135,40 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String username,
   }) async {
     try {
+      // Normalize username: trim and lowercase for consistency
+      final normalizedUsername = username.trim().toLowerCase();
+
       // Store username in user_metadata for Supabase Auth
       // emailRedirectTo: deep link so verification opens the app (not localhost)
+      // IMPORTANT: Email confirmation MUST be enabled in Supabase dashboard
+      // (Auth → Providers → Email → Enable "Confirm email")
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'username': username.trim(), 'display_name': username.trim()},
+        data: {
+          'username': normalizedUsername,
+          'display_name': username
+              .trim(), // Keep display name with original casing
+        },
         emailRedirectTo: SupabaseConfig.authCallbackUrl,
       );
 
       // Create profile with username (if profiles table exists)
+      // This requires running supabase/migrations/001_profiles.sql in Supabase SQL Editor
       if (response.user != null) {
         try {
           await _supabase.from('profiles').insert({
             'id': response.user!.id,
-            'username': username.trim().toLowerCase(),
+            'username': normalizedUsername,
             'display_name': username.trim(),
           });
-        } catch (_) {
-          // Profiles table may not exist yet - continue, metadata is set
+        } catch (profileError) {
+          // Profile creation failed - could be:
+          // 1. Profiles table doesn't exist yet (run migration)
+          // 2. Username already taken (shouldn't happen if checked)
+          // 3. Network/permission error
+          // Continue anyway - user_metadata is set, profile can be created later
+          // In production, consider logging this error for debugging
         }
       }
 
