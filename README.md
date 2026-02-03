@@ -19,7 +19,41 @@ Edit `.env` and add your values from [Supabase Dashboard](https://supabase.com/d
 
 > ⚠️ Never commit `.env` – it's in `.gitignore`. Share only `.env.example` as a template.
 
-### 2. Run the app
+### 2. Supabase Auth: URL configuration (fixes invalid verification link)
+
+In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **URL Configuration**:
+
+1. **Site URL**: Change from `http://localhost:3000` to:
+   ```
+   com.workouttracker.workoutapp://auth-callback/
+   ```
+2. **Redirect URLs**: Add (if not already present):
+   ```
+   com.workouttracker.workoutapp://auth-callback/**
+   ```
+
+Without this, the verification email redirects to `localhost:3000`, which fails on mobile.
+
+### 3. Supabase Auth: Enable email confirmation
+
+In **Authentication** → **Providers** → **Email**:
+
+- Enable **"Confirm email"**
+
+Users must verify their email before signing in. Unverified users get "Resend verification email" on sign-in attempt.
+
+### 4. Supabase profiles table (for username uniqueness)
+
+Run the migration in Supabase SQL Editor:
+
+```bash
+# Copy and run the contents of:
+supabase/migrations/001_profiles.sql
+```
+
+Go to [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor** → New query → paste and run.
+
+### 5. Run the app
 
 ```bash
 flutter pub get

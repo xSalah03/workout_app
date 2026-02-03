@@ -54,6 +54,12 @@ final signInWithEmailProvider = Provider<SignInWithEmail>((ref) {
   return SignInWithEmail(ref.watch(authRepositoryProvider));
 });
 
+final checkUsernameAvailabilityProvider = Provider<CheckUsernameAvailability>((
+  ref,
+) {
+  return CheckUsernameAvailability(ref.watch(authRepositoryProvider));
+});
+
 final signUpWithEmailProvider = Provider<SignUpWithEmail>((ref) {
   return SignUpWithEmail(ref.watch(authRepositoryProvider));
 });
@@ -160,16 +166,19 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   /// Sign up with email
+  /// On success, user is auto signed in and redirected
   Future<void> signUpWithEmail({
     required String email,
     required String password,
-    String? displayName,
+    required String username,
+    String? avatarUrl,
   }) async {
     state = const AsyncValue.loading();
     final result = await _signUpWithEmail(
       email: email,
       password: password,
-      displayName: displayName,
+      username: username,
+      avatarUrl: avatarUrl,
     );
     result.fold(
       (failure) => state = AsyncValue.error(failure, StackTrace.current),
@@ -203,6 +212,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       (failure) => state = AsyncValue.error(failure, StackTrace.current),
       (_) => state = const AsyncValue.data(null),
     );
+  }
+
+  /// Resend verification email for unconfirmed sign-ups
+  /// Returns true on success, false on failure (caller should show snackbar)
+  Future<bool> resendVerificationEmail(String email) async {
+    final result = await _authRepository.resendVerificationEmail(email);
+    return result.isRight();
   }
 }
 

@@ -162,10 +162,28 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  ResultFuture<bool> isUsernameAvailable(String username) async {
+    if (!await _networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+    try {
+      final available = await _remoteDataSource.isUsernameAvailable(
+        username.trim(),
+      );
+      return Right(available);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
   ResultFuture<User> signUpWithEmail({
     required String email,
     required String password,
-    String? displayName,
+    required String username,
+    String? avatarUrl,
   }) async {
     if (!await _networkInfo.isConnected) {
       return const Left(NetworkFailure());
@@ -175,25 +193,29 @@ class AuthRepositoryImpl implements AuthRepository {
       final response = await _remoteDataSource.signUpWithEmail(
         email: email,
         password: password,
+        username: username.trim(),
       );
 
       if (response.user == null) {
         return const Left(AuthFailure(message: 'Sign up failed'));
       }
 
-      // Save tokens
-      if (response.session != null) {
-        await _localDataSource.saveTokens(
-          accessToken: response.session!.accessToken,
-          refreshToken: response.session!.refreshToken ?? '',
-        );
+      // Email confirmation required: no session until user verifies
+      // Never allow access without email confirmation
+      if (response.session == null) {
+        return Left(AuthFailure.emailVerificationRequired());
       }
 
-      // Create local user
+      // Session exists - create local user and sign in
+      await _localDataSource.saveTokens(
+        accessToken: response.session!.accessToken,
+        refreshToken: response.session!.refreshToken ?? '',
+      );
+
       final localUser = await _localDataSource.createAnonymousUser();
       final updatedUser = localUser.copyWith(
         email: Value(email),
-        displayName: Value(displayName),
+        displayName: Value(username.trim()),
         supabaseId: Value(response.user!.id),
         isAnonymous: false,
         isDirty: false,
@@ -296,6 +318,22 @@ class AuthRepositoryImpl implements AuthRepository {
 
     try {
       await _remoteDataSource.sendPasswordResetEmail(email);
+      return const Right(null);
+    } on AppAuthException catch (e) {
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  ResultVoid resendVerificationEmail(String email) async {
+    if (!await _networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+
+    try {
+      await _remoteDataSource.resendVerificationEmail(email);
       return const Right(null);
     } on AppAuthException catch (e) {
       return Left(AuthFailure(message: e.message, code: e.code));

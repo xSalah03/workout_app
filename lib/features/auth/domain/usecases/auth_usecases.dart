@@ -30,6 +30,16 @@ class SignInWithEmail {
       _repository.signInWithEmail(email: email, password: password);
 }
 
+/// Check username availability use case
+class CheckUsernameAvailability {
+  final AuthRepository _repository;
+
+  CheckUsernameAvailability(this._repository);
+
+  ResultFuture<bool> call(String username) =>
+      _repository.isUsernameAvailable(username);
+}
+
 /// Sign up with email use case
 class SignUpWithEmail {
   final AuthRepository _repository;
@@ -39,11 +49,13 @@ class SignUpWithEmail {
   ResultFuture<User> call({
     required String email,
     required String password,
-    String? displayName,
+    required String username,
+    String? avatarUrl,
   }) => _repository.signUpWithEmail(
     email: email,
     password: password,
-    displayName: displayName,
+    username: username,
+    avatarUrl: avatarUrl,
   );
 }
 

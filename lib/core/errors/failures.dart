@@ -102,6 +102,21 @@ class AuthFailure extends Failure {
     message: 'Session expired. Please login again',
     code: 'SESSION_EXPIRED',
   );
+
+  factory AuthFailure.emailNotConfirmed() => const AuthFailure(
+    message: 'Please verify your email before signing in',
+    code: 'EMAIL_NOT_CONFIRMED',
+  );
+
+  factory AuthFailure.emailVerificationRequired() => const AuthFailure(
+    message: 'Please check your email to verify your account',
+    code: 'EMAIL_VERIFICATION_REQUIRED',
+  );
+
+  factory AuthFailure.emailRateLimit() => const AuthFailure(
+    message: 'Too many requests. Please try again later',
+    code: 'EMAIL_RATE_LIMIT',
+  );
 }
 
 /// Validation failures

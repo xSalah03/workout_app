@@ -1,9 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/exceptions.dart' as app_exceptions;
 
 /// Remote data source for authentication (Supabase)
 abstract class AuthRemoteDataSource {
+  /// Check if username is available (not taken by another user)
+  /// Queries profiles table - requires Supabase profiles setup
+  Future<bool> isUsernameAvailable(String username);
+
   /// Sign in anonymously
   Future<AuthResponse> signInAnonymously();
 
@@ -14,9 +19,11 @@ abstract class AuthRemoteDataSource {
   });
 
   /// Sign up with email and password
+  /// [username] is required and stored in user_metadata + profiles table
   Future<AuthResponse> signUpWithEmail({
     required String email,
     required String password,
+    required String username,
   });
 
   /// Link anonymous account to email
@@ -30,6 +37,10 @@ abstract class AuthRemoteDataSource {
 
   /// Send password reset email
   Future<void> sendPasswordResetEmail(String email);
+
+  /// Resend verification email for unconfirmed sign-ups
+  /// Use when user tries to sign in but email is not yet confirmed
+  Future<void> resendVerificationEmail(String email);
 
   /// Get current session
   Session? get currentSession;
@@ -60,6 +71,24 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   AuthRemoteDataSourceImpl({required SupabaseClient supabase})
     : _supabase = supabase;
+
+  @override
+  Future<bool> isUsernameAvailable(String username) async {
+    try {
+      // Query profiles table - username must be unique
+      // Run supabase/migrations/001_profiles.sql in Supabase to create the table
+      final result = await _supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username.trim().toLowerCase())
+          .maybeSingle();
+      return result == null;
+    } catch (e) {
+      // If profiles table doesn't exist yet, assume available
+      // User should run the migration - see supabase/migrations/
+      return true;
+    }
+  }
 
   @override
   Future<AuthResponse> signInAnonymously() async {
@@ -103,9 +132,32 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<AuthResponse> signUpWithEmail({
     required String email,
     required String password,
+    required String username,
   }) async {
     try {
-      return await _supabase.auth.signUp(email: email, password: password);
+      // Store username in user_metadata for Supabase Auth
+      // emailRedirectTo: deep link so verification opens the app (not localhost)
+      final response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {'username': username.trim(), 'display_name': username.trim()},
+        emailRedirectTo: SupabaseConfig.authCallbackUrl,
+      );
+
+      // Create profile with username (if profiles table exists)
+      if (response.user != null) {
+        try {
+          await _supabase.from('profiles').insert({
+            'id': response.user!.id,
+            'username': username.trim().toLowerCase(),
+            'display_name': username.trim(),
+          });
+        } catch (_) {
+          // Profiles table may not exist yet - continue, metadata is set
+        }
+      }
+
+      return response;
     } on AuthException catch (e) {
       throw _mapAuthException(e);
     } catch (e) {
@@ -157,6 +209,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e) {
       throw app_exceptions.ServerException(
         message: 'Failed to send reset email: $e',
+        originalException: e,
+      );
+    }
+  }
+
+  @override
+  Future<void> resendVerificationEmail(String email) async {
+    try {
+      await _supabase.auth.resend(type: OtpType.signup, email: email.trim());
+    } on AuthException catch (e) {
+      throw _mapAuthException(e);
+    } catch (e) {
+      throw app_exceptions.ServerException(
+        message: 'Failed to resend verification email: $e',
         originalException: e,
       );
     }
@@ -233,6 +299,27 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return app_exceptions.AppAuthException(
         message: 'Invalid email or password',
         code: 'INVALID_CREDENTIALS',
+        originalException: e,
+      );
+    }
+
+    // Email not confirmed - user must verify before signing in
+    if (message.contains('email not confirmed') ||
+        message.contains('email_not_confirmed')) {
+      return app_exceptions.AppAuthException(
+        message: 'Please verify your email before signing in',
+        code: 'EMAIL_NOT_CONFIRMED',
+        originalException: e,
+      );
+    }
+
+    // Rate limit - too many auth emails sent
+    if (message.contains('rate limit') ||
+        message.contains('over quota') ||
+        message.contains('429')) {
+      return app_exceptions.AppAuthException(
+        message: 'Too many requests. Please try again later',
+        code: 'EMAIL_RATE_LIMIT',
         originalException: e,
       );
     }

@@ -16,11 +16,16 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Check if username is available (not taken)
+  ResultFuture<bool> isUsernameAvailable(String username);
+
   /// Sign up with email and password
+  /// [username] is required and must be unique
   ResultFuture<User> signUpWithEmail({
     required String email,
     required String password,
-    String? displayName,
+    required String username,
+    String? avatarUrl,
   });
 
   /// Upgrade anonymous account to email account
@@ -35,6 +40,9 @@ abstract class AuthRepository {
 
   /// Send password reset email
   ResultVoid sendPasswordResetEmail(String email);
+
+  /// Resend verification email for unconfirmed sign-ups
+  ResultVoid resendVerificationEmail(String email);
 
   /// Update user profile
   ResultFuture<User> updateProfile({String? displayName, String? email});

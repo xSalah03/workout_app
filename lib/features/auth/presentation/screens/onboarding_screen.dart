@@ -55,10 +55,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  void _completeOnboarding() async {
-    await ref.read(onboardingCompleteProvider.notifier).complete();
-    // Sign in anonymously
-    await ref.read(currentUserProvider.notifier).signInAnonymously();
+  Future<void> _completeOnboarding() async {
+    // Capture notifiers before any await - ref is invalid after widget dispose
+    final onboardingNotifier = ref.read(onboardingCompleteProvider.notifier);
+    final authNotifier = ref.read(currentUserProvider.notifier);
+
+    await onboardingNotifier.complete();
+    if (!mounted) return;
+    await authNotifier.signInAnonymously();
   }
 
   @override

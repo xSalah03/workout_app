@@ -55,6 +55,11 @@ class AppConstants {
 class SupabaseConfig {
   SupabaseConfig._();
 
+  /// Deep link for auth callbacks (email verification, password reset)
+  /// Add this exact URL to Supabase: Auth → URL Configuration → Redirect URLs
+  static const String authCallbackUrl =
+      'com.workouttracker.workoutapp://auth-callback/';
+
   // Table names
   static const String usersTable = 'users';
   static const String exercisesTable = 'exercises';
