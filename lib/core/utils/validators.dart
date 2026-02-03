@@ -57,6 +57,26 @@ class Validators {
     return null;
   }
 
+  /// Validate username (required, unique, alphanumeric + underscore)
+  /// Used for sign up - uniqueness is checked separately via API
+  static String? username(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Username is required';
+    }
+    final trimmed = value.trim();
+    if (trimmed.length < AppConstants.minUsernameLength) {
+      return 'Username must be at least ${AppConstants.minUsernameLength} characters';
+    }
+    if (trimmed.length > AppConstants.maxUsernameLength) {
+      return 'Username must be less than ${AppConstants.maxUsernameLength} characters';
+    }
+    // Allow letters, numbers, underscore only
+    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(trimmed)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    return null;
+  }
+
   /// Validate name (for workout, exercise, etc.)
   static String? name(String? value, [String fieldName = 'Name']) {
     if (value == null || value.trim().isEmpty) {

@@ -34,6 +34,8 @@ class AppConstants {
 
   // Validation
   static const int minPasswordLength = 8;
+  static const int minUsernameLength = 3;
+  static const int maxUsernameLength = 30;
   static const int maxNameLength = 100;
   static const int maxNotesLength = 1000;
   static const double maxWeight = 1000.0; // kg
