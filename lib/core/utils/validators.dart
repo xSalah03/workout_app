@@ -6,20 +6,32 @@ class Validators {
 
   /// Validate email format
   static String? email(String? value) {
-    if (value == null || value.isEmpty) {
+    if (value == null || value.trim().isEmpty) {
       return 'Email is required';
     }
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    if (!emailRegex.hasMatch(value)) {
+    // Basic email validation
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
       return 'Please enter a valid email';
     }
     return null;
   }
 
-  /// Validate password
-  static String? password(String? value) {
+  /// Minimal password validation for LOGIN ONLY
+  /// - Does not check password strength/format
+  /// - Only ensures password is provided
+  /// - Prevents user enumeration attacks
+  static String? passwordLogin(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    return null;
+  }
+
+  /// Strong password validation for SIGN UP and RESET PASSWORD
+  /// - Enforces minimum length
+  /// - Requires uppercase, lowercase, and number
+  /// - Used only during account creation and password reset
+  static String? passwordStrength(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
@@ -36,6 +48,14 @@ class Validators {
       return 'Password must contain at least one number';
     }
     return null;
+  }
+
+  /// Legacy password validator - DEPRECATED
+  /// Use passwordLogin for login forms
+  /// Use passwordStrength for sign-up and reset password forms
+  @Deprecated('Use passwordLogin or passwordStrength instead')
+  static String? password(String? value) {
+    return passwordStrength(value);
   }
 
   /// Validate password confirmation
@@ -182,6 +202,56 @@ class Validators {
     }
     if (value.length > AppConstants.maxNotesLength) {
       return 'Notes must be less than ${AppConstants.maxNotesLength} characters';
+    }
+    return null;
+  }
+
+  /// Validate age (13-120 years)
+  /// Age 13+ is minimum per data protection laws (COPPA, GDPR)
+  static String? age(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Age is required';
+    }
+    final age = int.tryParse(value);
+    if (age == null) {
+      return 'Please enter a valid age';
+    }
+    if (age < 13) {
+      return 'You must be at least 13 years old';
+    }
+    if (age > 120) {
+      return 'Please enter a valid age';
+    }
+    return null;
+  }
+
+  /// Validate height in cm (50-300 cm)
+  static String? heightCm(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Height is required';
+    }
+    final height = double.tryParse(value);
+    if (height == null) {
+      return 'Please enter a valid height';
+    }
+    if (height < 50 || height > 300) {
+      return 'Height must be between 50 and 300 cm';
+    }
+    return null;
+  }
+
+  /// Validate body weight in kg (20-500 kg)
+  /// Different from exercise weight validation
+  static String? bodyWeight(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Weight is required';
+    }
+    final weight = double.tryParse(value);
+    if (weight == null) {
+      return 'Please enter a valid weight';
+    }
+    if (weight < 20 || weight > 500) {
+      return 'Weight must be between 20 and 500 kg';
     }
     return null;
   }

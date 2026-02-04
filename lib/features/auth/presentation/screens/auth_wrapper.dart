@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/providers/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../providers/auth_provider.dart';
@@ -9,11 +10,25 @@ import 'onboarding_screen.dart';
 import '../../../workout/presentation/screens/home_screen.dart';
 
 /// Auth wrapper that handles authentication state and navigation
-class AuthWrapper extends ConsumerWidget {
+class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends ConsumerState<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize Deep Links
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(deepLinkServiceProvider).init(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(currentUserProvider);
     final onboardingComplete = ref.watch(onboardingCompleteProvider);
 

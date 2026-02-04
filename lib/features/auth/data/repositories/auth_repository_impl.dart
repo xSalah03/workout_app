@@ -30,12 +30,16 @@ class AuthRepositoryImpl implements AuthRepository {
        _remoteDataSource = remoteDataSource,
        _networkInfo = networkInfo {
     // Listen to remote auth changes and update local state
-    _remoteDataSource.authStateChanges.listen((state) async {
-      if (state.session != null) {
+    _remoteDataSource.authStateChanges.listen((firebaseUser) async {
+      if (firebaseUser != null) {
         // User logged in remotely, sync local user
         final localUser = await _localDataSource.getCurrentUser();
         if (localUser != null) {
           _authStateController.add(UserMapper.fromEntity(localUser));
+        } else {
+          // If no local user but firebase user exists, we might need to fetch profile
+          // This happens on fresh install or login
+          _authStateController.add(null);
         }
       } else {
         // User logged out remotely
@@ -67,28 +71,21 @@ class AuthRepositoryImpl implements AuthRepository {
       // If online, also create remote anonymous user
       if (await _networkInfo.isConnected) {
         try {
-          final response = await _remoteDataSource.signInAnonymously();
-          if (response.user != null) {
-            // Update local user with remote ID
+          final result = await _remoteDataSource.signInAnonymously();
+          if (result.user != null) {
+            // Update local user with remote ID (uid)
             final updatedEntity = localUser.copyWith(
-              supabaseId: Value(response.user!.id),
+              remoteId: Value(result.user!.uid),
               isDirty: false,
               lastSyncedAt: Value(DateTime.now()),
             );
             await _localDataSource.saveUser(updatedEntity);
             user = UserMapper.fromEntity(updatedEntity);
 
-            // Save tokens
-            if (response.session != null) {
-              await _localDataSource.saveTokens(
-                accessToken: response.session!.accessToken,
-                refreshToken: response.session!.refreshToken ?? '',
-              );
-            }
+            // Firebase handles tokens automatically, no need to save manually
           }
         } catch (e) {
           // Failed to create remote user, continue with local only
-          // Will sync later when online
         }
       }
 
@@ -106,43 +103,33 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Email sign-in requires network
     if (!await _networkInfo.isConnected) {
       return const Left(NetworkFailure());
     }
 
     try {
-      final response = await _remoteDataSource.signInWithEmail(
+      final result = await _remoteDataSource.signInWithEmail(
         email: email,
         password: password,
       );
 
-      if (response.user == null) {
+      if (result.user == null) {
         return const Left(AuthFailure(message: 'Sign in failed'));
       }
 
-      // Save tokens
-      if (response.session != null) {
-        await _localDataSource.saveTokens(
-          accessToken: response.session!.accessToken,
-          refreshToken: response.session!.refreshToken ?? '',
-        );
-      }
-
-      // Check if local user exists with this supabase ID
+      // Check if local user exists with this UID
       var localUser = await _localDataSource.getCurrentUser();
 
-      if (localUser == null || localUser.supabaseId != response.user!.id) {
+      if (localUser == null || localUser.remoteId != result.user!.uid) {
         // Create or update local user
         final now = DateTime.now();
         final newUser = await _localDataSource.createAnonymousUser();
+        // In a real app we'd fetch the Firestore profile here
         localUser = newUser.copyWith(
           email: Value(email),
-          supabaseId: Value(response.user!.id),
+          remoteId: Value(result.user!.uid),
           isAnonymous: false,
-          displayName: Value(
-            response.user!.userMetadata?['display_name'] as String?,
-          ),
+          displayName: Value(result.user!.displayName),
           isDirty: false,
           lastSyncedAt: Value(now),
         );
@@ -157,7 +144,13 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
     } catch (e) {
-      return Left(UnknownFailure(message: e.toString()));
+      // Requirement: Generic error for login failure
+      return const Left(
+        AuthFailure(
+          message: 'Invalid email or password',
+          code: 'INVALID_CREDENTIALS',
+        ),
+      );
     }
   }
 
@@ -183,6 +176,9 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     required String username,
+    required int age,
+    required double heightCm,
+    required double weightKg,
     String? avatarUrl,
   }) async {
     if (!await _networkInfo.isConnected) {
@@ -190,60 +186,23 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     try {
-      final response = await _remoteDataSource.signUpWithEmail(
+      final result = await _remoteDataSource.signUpWithEmail(
         email: email,
         password: password,
         username: username.trim(),
+        age: age,
+        heightCm: heightCm,
+        weightKg: weightKg,
       );
 
-      if (response.user == null) {
+      if (result.user == null) {
         return const Left(AuthFailure(message: 'Sign up failed'));
       }
 
-      // EMAIL CONFIRMATION FLOW:
-      // ========================
-      // REQUIRED SETUP: Enable email confirmation in Supabase dashboard
-      // (Auth → Providers → Email → Enable "Confirm email")
-      //
-      // When email confirmation is enabled:
-      // - response.session will be NULL after sign up
-      // - User MUST verify email before they can sign in
-      // - Verification email contains link with token
-      // - After clicking link, user can sign in normally
-      //
-      // When email confirmation is disabled (NOT recommended):
-      // - response.session will be present immediately
-      // - User can access app without verification
-      //
-      // This app REQUIRES email confirmation for security
-      if (response.session == null) {
-        // Expected behavior: user needs to verify email
-        return Left(AuthFailure.emailVerificationRequired());
-      }
-
-      // If we reach here, either:
-      // 1. Email confirmation is disabled in Supabase (not recommended)
-      // 2. User clicked verification link and is auto-signed in
-      // Create local user and proceed
-      await _localDataSource.saveTokens(
-        accessToken: response.session!.accessToken,
-        refreshToken: response.session!.refreshToken ?? '',
-      );
-
-      final localUser = await _localDataSource.createAnonymousUser();
-      final updatedUser = localUser.copyWith(
-        email: Value(email),
-        displayName: Value(username.trim()),
-        supabaseId: Value(response.user!.id),
-        isAnonymous: false,
-        isDirty: false,
-        lastSyncedAt: Value(DateTime.now()),
-      );
-      await _localDataSource.saveUser(updatedUser);
-
-      final user = UserMapper.fromEntity(updatedUser);
-      _authStateController.add(user);
-      return Right(user);
+      // Requirement: Email verification required.
+      // AuthRemoteDataSourceImpl already signs out and sends verification.
+      // So we return the verification required failure.
+      return Left(AuthFailure.emailVerificationRequired());
     } on AppAuthException catch (e) {
       return Left(AuthFailure(message: e.message, code: e.code));
     } on ServerException catch (e) {
@@ -273,13 +232,12 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Left(AuthFailure(message: 'User is not anonymous'));
       }
 
-      // Link email to anonymous account
-      final response = await _remoteDataSource.linkEmailToAnonymous(
+      final result = await _remoteDataSource.linkEmailToAnonymous(
         email: email,
         password: password,
       );
 
-      if (response.user == null) {
+      if (result.user == null) {
         return const Left(AuthFailure(message: 'Upgrade failed'));
       }
 
@@ -288,7 +246,7 @@ class AuthRepositoryImpl implements AuthRepository {
         email: Value(email),
         displayName: Value(displayName),
         isAnonymous: false,
-        isDirty: true, // Mark for sync
+        isDirty: true,
         updatedAt: DateTime.now(),
       );
       await _localDataSource.saveUser(updatedUser);
@@ -309,7 +267,6 @@ class AuthRepositoryImpl implements AuthRepository {
   ResultVoid signOut() async {
     try {
       // Clear local session
-      await _localDataSource.clearTokens();
       await _localDataSource.clearCurrentUserId();
 
       // Sign out from remote if online
@@ -336,6 +293,29 @@ class AuthRepositoryImpl implements AuthRepository {
 
     try {
       await _remoteDataSource.sendPasswordResetEmail(email);
+      return const Right(null);
+    } on AppAuthException catch (e) {
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  ResultVoid resetPassword({required String newPassword, String? code}) async {
+    if (!await _networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+
+    try {
+      if (code != null) {
+        await _remoteDataSource.confirmPasswordReset(
+          code: code,
+          newPassword: newPassword,
+        );
+      } else {
+        await _remoteDataSource.updatePassword(newPassword);
+      }
       return const Right(null);
     } on AppAuthException catch (e) {
       return Left(AuthFailure(message: e.message, code: e.code));
@@ -378,12 +358,12 @@ class AuthRepositoryImpl implements AuthRepository {
       await _localDataSource.updateUser(updatedUser);
 
       // Update remote if online
-      if (await _networkInfo.isConnected && currentUser.supabaseId != null) {
+      if (await _networkInfo.isConnected && currentUser.remoteId != null) {
         try {
-          await _remoteDataSource.updateUser(
-            email: email,
-            data: displayName != null ? {'display_name': displayName} : null,
-          );
+          await _remoteDataSource.updateProfileData({
+            if (displayName != null) 'display_name': displayName,
+            if (email != null) 'email': email,
+          });
 
           // Mark as synced
           final syncedUser = updatedUser.copyWith(
@@ -419,7 +399,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // Delete from remote if online
-      if (await _networkInfo.isConnected && currentUser.supabaseId != null) {
+      if (await _networkInfo.isConnected && currentUser.remoteId != null) {
         try {
           await _remoteDataSource.deleteAccount();
         } catch (_) {

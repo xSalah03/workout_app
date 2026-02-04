@@ -4,54 +4,61 @@ A production-ready Workout Tracker with offline-first architecture.
 
 ## Getting Started
 
-### 1. Supabase setup (required for auth & sync)
+## Getting Started
 
-Create a `.env` file with your Supabase credentials:
+This project uses **Firebase** for authentication and data synchronization.
 
-```bash
-cp .env.example .env
+### 1. Firebase Setup
+
+You need to initialize Firebase for your project:
+
+1.  **Install FlutterFire CLI**:
+    ```bash
+    dart pub global activate flutterfire_cli
+    ```
+
+2.  **Configure Firebase**:
+    Run the following command from the root of your project and follow the prompts:
+    ```bash
+    flutterfire configure
+    ```
+    This will generate `lib/firebase_options.dart` and register your apps in the Firebase Console.
+
+### 2. Authentication Configuration
+
+The app uses Firebase Auth with mandatory email verification.
+
+1.  **Enable Email/Password**: Go to Firebase Console → Authentication → Sign-in method → Enable "Email/Password".
+2.  **Email Verification**: New users must verify their email before they can sign in.
+3.  **Username Uniqueness**: Handled automatically via Firestore `usernames` and `users` collections.
+
+### 3. Deep Linking (Password Resets)
+
+To handle password resets in-app, ensure you have configured:
+
+1.  **Firebase Hosting**: Used for handling App Links/Universal Links.
+2.  **Action URL**: Configure the "Action URL" in Firebase Console → Authentication → Settings to point to your hosting domain.
+3.  **Associated Domains (iOS)** and **AssetLinks (Android)**: See the [Flutter Deep Linking documentation](https://docs.flutter.dev/ui/navigation/deep-linking) for details on setting up your verified domains.
+
+### 4. Firestore Security Rules
+
+Ensure you deploy the following basic rules (or more restrictive ones):
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /usernames/{username} {
+      allow read: if true;
+      allow write: if request.auth != null && request.resource.data.uid == request.auth.uid;
+    }
+    // Add rules for other collections (exercises, workout_plans, etc.)
+  }
+}
 ```
-
-Edit `.env` and add your values from [Supabase Dashboard](https://supabase.com/dashboard) → Project Settings → API:
-
-- `SUPABASE_URL` – Project URL
-- `SUPABASE_ANON_KEY` – anon public key
-
-> ⚠️ Never commit `.env` – it's in `.gitignore`. Share only `.env.example` as a template.
-
-### 2. Supabase Auth: URL configuration (fixes invalid verification link)
-
-In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **URL Configuration**:
-
-1. **Site URL**: Change from `http://localhost:3000` to:
-   ```
-   com.workouttracker.workoutapp://auth-callback/
-   ```
-2. **Redirect URLs**: Add (if not already present):
-   ```
-   com.workouttracker.workoutapp://auth-callback/**
-   ```
-
-Without this, the verification email redirects to `localhost:3000`, which fails on mobile.
-
-### 3. Supabase Auth: Enable email confirmation
-
-In **Authentication** → **Providers** → **Email**:
-
-- Enable **"Confirm email"**
-
-Users must verify their email before signing in. Unverified users get "Resend verification email" on sign-in attempt.
-
-### 4. Supabase profiles table (for username uniqueness)
-
-Run the migration in Supabase SQL Editor:
-
-```bash
-# Copy and run the contents of:
-supabase/migrations/001_profiles.sql
-```
-
-Go to [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor** → New query → paste and run.
 
 ### 5. Run the app
 

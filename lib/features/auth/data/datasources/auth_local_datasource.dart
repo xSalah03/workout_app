@@ -121,7 +121,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
               id: user.id,
               email: Value(user.email),
               displayName: Value(user.displayName),
-              supabaseId: Value(user.supabaseId),
+              remoteId: Value(user.remoteId),
               isAnonymous: Value(user.isAnonymous),
               createdAt: Value(user.createdAt),
               updatedAt: Value(user.updatedAt),
@@ -147,7 +147,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       final companion = UsersCompanion(
         email: Value(user.email),
         displayName: Value(user.displayName),
-        supabaseId: Value(user.supabaseId),
+        remoteId: Value(user.remoteId),
         isAnonymous: Value(user.isAnonymous),
       );
 

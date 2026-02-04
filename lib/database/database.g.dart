@@ -24,12 +24,29 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
   late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
       'display_name', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _supabaseIdMeta =
-      const VerificationMeta('supabaseId');
+  static const VerificationMeta _remoteIdMeta =
+      const VerificationMeta('remoteId');
   @override
-  late final GeneratedColumn<String> supabaseId = GeneratedColumn<String>(
-      'supabase_id', aliasedName, true,
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+      'remote_id', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _ageMeta = const VerificationMeta('age');
+  @override
+  late final GeneratedColumn<int> age = GeneratedColumn<int>(
+      'age', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _heightCmMeta =
+      const VerificationMeta('heightCm');
+  @override
+  late final GeneratedColumn<double> heightCm = GeneratedColumn<double>(
+      'height_cm', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _weightKgMeta =
+      const VerificationMeta('weightKg');
+  @override
+  late final GeneratedColumn<double> weightKg = GeneratedColumn<double>(
+      'weight_kg', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _isAnonymousMeta =
       const VerificationMeta('isAnonymous');
   @override
@@ -85,7 +102,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
         id,
         email,
         displayName,
-        supabaseId,
+        remoteId,
+        age,
+        heightCm,
+        weightKg,
         isAnonymous,
         createdAt,
         updatedAt,
@@ -118,11 +138,21 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
           displayName.isAcceptableOrUnknown(
               data['display_name']!, _displayNameMeta));
     }
-    if (data.containsKey('supabase_id')) {
+    if (data.containsKey('remote_id')) {
+      context.handle(_remoteIdMeta,
+          remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta));
+    }
+    if (data.containsKey('age')) {
       context.handle(
-          _supabaseIdMeta,
-          supabaseId.isAcceptableOrUnknown(
-              data['supabase_id']!, _supabaseIdMeta));
+          _ageMeta, age.isAcceptableOrUnknown(data['age']!, _ageMeta));
+    }
+    if (data.containsKey('height_cm')) {
+      context.handle(_heightCmMeta,
+          heightCm.isAcceptableOrUnknown(data['height_cm']!, _heightCmMeta));
+    }
+    if (data.containsKey('weight_kg')) {
+      context.handle(_weightKgMeta,
+          weightKg.isAcceptableOrUnknown(data['weight_kg']!, _weightKgMeta));
     }
     if (data.containsKey('is_anonymous')) {
       context.handle(
@@ -169,8 +199,14 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserEntity> {
           .read(DriftSqlType.string, data['${effectivePrefix}email']),
       displayName: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}display_name']),
-      supabaseId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}supabase_id']),
+      remoteId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remote_id']),
+      age: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}age']),
+      heightCm: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}height_cm']),
+      weightKg: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}weight_kg']),
       isAnonymous: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_anonymous'])!,
       createdAt: attachedDatabase.typeMapping
@@ -196,7 +232,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
   final String id;
   final String? email;
   final String? displayName;
-  final String? supabaseId;
+  final String? remoteId;
+  final int? age;
+  final double? heightCm;
+  final double? weightKg;
   final bool isAnonymous;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -207,7 +246,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       {required this.id,
       this.email,
       this.displayName,
-      this.supabaseId,
+      this.remoteId,
+      this.age,
+      this.heightCm,
+      this.weightKg,
       required this.isAnonymous,
       required this.createdAt,
       required this.updatedAt,
@@ -224,8 +266,17 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
     if (!nullToAbsent || displayName != null) {
       map['display_name'] = Variable<String>(displayName);
     }
-    if (!nullToAbsent || supabaseId != null) {
-      map['supabase_id'] = Variable<String>(supabaseId);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
+    if (!nullToAbsent || age != null) {
+      map['age'] = Variable<int>(age);
+    }
+    if (!nullToAbsent || heightCm != null) {
+      map['height_cm'] = Variable<double>(heightCm);
+    }
+    if (!nullToAbsent || weightKg != null) {
+      map['weight_kg'] = Variable<double>(weightKg);
     }
     map['is_anonymous'] = Variable<bool>(isAnonymous);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -246,9 +297,16 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       displayName: displayName == null && nullToAbsent
           ? const Value.absent()
           : Value(displayName),
-      supabaseId: supabaseId == null && nullToAbsent
+      remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
-          : Value(supabaseId),
+          : Value(remoteId),
+      age: age == null && nullToAbsent ? const Value.absent() : Value(age),
+      heightCm: heightCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(heightCm),
+      weightKg: weightKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weightKg),
       isAnonymous: Value(isAnonymous),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -267,7 +325,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       id: serializer.fromJson<String>(json['id']),
       email: serializer.fromJson<String?>(json['email']),
       displayName: serializer.fromJson<String?>(json['displayName']),
-      supabaseId: serializer.fromJson<String?>(json['supabaseId']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
+      age: serializer.fromJson<int?>(json['age']),
+      heightCm: serializer.fromJson<double?>(json['heightCm']),
+      weightKg: serializer.fromJson<double?>(json['weightKg']),
       isAnonymous: serializer.fromJson<bool>(json['isAnonymous']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -283,7 +344,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       'id': serializer.toJson<String>(id),
       'email': serializer.toJson<String?>(email),
       'displayName': serializer.toJson<String?>(displayName),
-      'supabaseId': serializer.toJson<String?>(supabaseId),
+      'remoteId': serializer.toJson<String?>(remoteId),
+      'age': serializer.toJson<int?>(age),
+      'heightCm': serializer.toJson<double?>(heightCm),
+      'weightKg': serializer.toJson<double?>(weightKg),
       'isAnonymous': serializer.toJson<bool>(isAnonymous),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -297,7 +361,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
           {String? id,
           Value<String?> email = const Value.absent(),
           Value<String?> displayName = const Value.absent(),
-          Value<String?> supabaseId = const Value.absent(),
+          Value<String?> remoteId = const Value.absent(),
+          Value<int?> age = const Value.absent(),
+          Value<double?> heightCm = const Value.absent(),
+          Value<double?> weightKg = const Value.absent(),
           bool? isAnonymous,
           DateTime? createdAt,
           DateTime? updatedAt,
@@ -308,7 +375,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
         id: id ?? this.id,
         email: email.present ? email.value : this.email,
         displayName: displayName.present ? displayName.value : this.displayName,
-        supabaseId: supabaseId.present ? supabaseId.value : this.supabaseId,
+        remoteId: remoteId.present ? remoteId.value : this.remoteId,
+        age: age.present ? age.value : this.age,
+        heightCm: heightCm.present ? heightCm.value : this.heightCm,
+        weightKg: weightKg.present ? weightKg.value : this.weightKg,
         isAnonymous: isAnonymous ?? this.isAnonymous,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
@@ -323,8 +393,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
       email: data.email.present ? data.email.value : this.email,
       displayName:
           data.displayName.present ? data.displayName.value : this.displayName,
-      supabaseId:
-          data.supabaseId.present ? data.supabaseId.value : this.supabaseId,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      age: data.age.present ? data.age.value : this.age,
+      heightCm: data.heightCm.present ? data.heightCm.value : this.heightCm,
+      weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
       isAnonymous:
           data.isAnonymous.present ? data.isAnonymous.value : this.isAnonymous,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -344,7 +416,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
           ..write('id: $id, ')
           ..write('email: $email, ')
           ..write('displayName: $displayName, ')
-          ..write('supabaseId: $supabaseId, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('age: $age, ')
+          ..write('heightCm: $heightCm, ')
+          ..write('weightKg: $weightKg, ')
           ..write('isAnonymous: $isAnonymous, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -356,8 +431,20 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
   }
 
   @override
-  int get hashCode => Object.hash(id, email, displayName, supabaseId,
-      isAnonymous, createdAt, updatedAt, isDirty, syncVersion, lastSyncedAt);
+  int get hashCode => Object.hash(
+      id,
+      email,
+      displayName,
+      remoteId,
+      age,
+      heightCm,
+      weightKg,
+      isAnonymous,
+      createdAt,
+      updatedAt,
+      isDirty,
+      syncVersion,
+      lastSyncedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -365,7 +452,10 @@ class UserEntity extends DataClass implements Insertable<UserEntity> {
           other.id == this.id &&
           other.email == this.email &&
           other.displayName == this.displayName &&
-          other.supabaseId == this.supabaseId &&
+          other.remoteId == this.remoteId &&
+          other.age == this.age &&
+          other.heightCm == this.heightCm &&
+          other.weightKg == this.weightKg &&
           other.isAnonymous == this.isAnonymous &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -378,7 +468,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
   final Value<String> id;
   final Value<String?> email;
   final Value<String?> displayName;
-  final Value<String?> supabaseId;
+  final Value<String?> remoteId;
+  final Value<int?> age;
+  final Value<double?> heightCm;
+  final Value<double?> weightKg;
   final Value<bool> isAnonymous;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -390,7 +483,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     this.id = const Value.absent(),
     this.email = const Value.absent(),
     this.displayName = const Value.absent(),
-    this.supabaseId = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.age = const Value.absent(),
+    this.heightCm = const Value.absent(),
+    this.weightKg = const Value.absent(),
     this.isAnonymous = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -403,7 +499,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     required String id,
     this.email = const Value.absent(),
     this.displayName = const Value.absent(),
-    this.supabaseId = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.age = const Value.absent(),
+    this.heightCm = const Value.absent(),
+    this.weightKg = const Value.absent(),
     this.isAnonymous = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -416,7 +515,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     Expression<String>? id,
     Expression<String>? email,
     Expression<String>? displayName,
-    Expression<String>? supabaseId,
+    Expression<String>? remoteId,
+    Expression<int>? age,
+    Expression<double>? heightCm,
+    Expression<double>? weightKg,
     Expression<bool>? isAnonymous,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -429,7 +531,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
       if (id != null) 'id': id,
       if (email != null) 'email': email,
       if (displayName != null) 'display_name': displayName,
-      if (supabaseId != null) 'supabase_id': supabaseId,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (age != null) 'age': age,
+      if (heightCm != null) 'height_cm': heightCm,
+      if (weightKg != null) 'weight_kg': weightKg,
       if (isAnonymous != null) 'is_anonymous': isAnonymous,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -444,7 +549,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
       {Value<String>? id,
       Value<String?>? email,
       Value<String?>? displayName,
-      Value<String?>? supabaseId,
+      Value<String?>? remoteId,
+      Value<int?>? age,
+      Value<double?>? heightCm,
+      Value<double?>? weightKg,
       Value<bool>? isAnonymous,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
@@ -456,7 +564,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
       id: id ?? this.id,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
-      supabaseId: supabaseId ?? this.supabaseId,
+      remoteId: remoteId ?? this.remoteId,
+      age: age ?? this.age,
+      heightCm: heightCm ?? this.heightCm,
+      weightKg: weightKg ?? this.weightKg,
       isAnonymous: isAnonymous ?? this.isAnonymous,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -479,8 +590,17 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
     if (displayName.present) {
       map['display_name'] = Variable<String>(displayName.value);
     }
-    if (supabaseId.present) {
-      map['supabase_id'] = Variable<String>(supabaseId.value);
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (age.present) {
+      map['age'] = Variable<int>(age.value);
+    }
+    if (heightCm.present) {
+      map['height_cm'] = Variable<double>(heightCm.value);
+    }
+    if (weightKg.present) {
+      map['weight_kg'] = Variable<double>(weightKg.value);
     }
     if (isAnonymous.present) {
       map['is_anonymous'] = Variable<bool>(isAnonymous.value);
@@ -512,7 +632,10 @@ class UsersCompanion extends UpdateCompanion<UserEntity> {
           ..write('id: $id, ')
           ..write('email: $email, ')
           ..write('displayName: $displayName, ')
-          ..write('supabaseId: $supabaseId, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('age: $age, ')
+          ..write('heightCm: $heightCm, ')
+          ..write('weightKg: $weightKg, ')
           ..write('isAnonymous: $isAnonymous, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -6438,7 +6561,10 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   required String id,
   Value<String?> email,
   Value<String?> displayName,
-  Value<String?> supabaseId,
+  Value<String?> remoteId,
+  Value<int?> age,
+  Value<double?> heightCm,
+  Value<double?> weightKg,
   Value<bool> isAnonymous,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -6451,7 +6577,10 @@ typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<String> id,
   Value<String?> email,
   Value<String?> displayName,
-  Value<String?> supabaseId,
+  Value<String?> remoteId,
+  Value<int?> age,
+  Value<double?> heightCm,
+  Value<double?> weightKg,
   Value<bool> isAnonymous,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -6481,7 +6610,10 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String> id = const Value.absent(),
             Value<String?> email = const Value.absent(),
             Value<String?> displayName = const Value.absent(),
-            Value<String?> supabaseId = const Value.absent(),
+            Value<String?> remoteId = const Value.absent(),
+            Value<int?> age = const Value.absent(),
+            Value<double?> heightCm = const Value.absent(),
+            Value<double?> weightKg = const Value.absent(),
             Value<bool> isAnonymous = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -6494,7 +6626,10 @@ class $$UsersTableTableManager extends RootTableManager<
             id: id,
             email: email,
             displayName: displayName,
-            supabaseId: supabaseId,
+            remoteId: remoteId,
+            age: age,
+            heightCm: heightCm,
+            weightKg: weightKg,
             isAnonymous: isAnonymous,
             createdAt: createdAt,
             updatedAt: updatedAt,
@@ -6507,7 +6642,10 @@ class $$UsersTableTableManager extends RootTableManager<
             required String id,
             Value<String?> email = const Value.absent(),
             Value<String?> displayName = const Value.absent(),
-            Value<String?> supabaseId = const Value.absent(),
+            Value<String?> remoteId = const Value.absent(),
+            Value<int?> age = const Value.absent(),
+            Value<double?> heightCm = const Value.absent(),
+            Value<double?> weightKg = const Value.absent(),
             Value<bool> isAnonymous = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -6520,7 +6658,10 @@ class $$UsersTableTableManager extends RootTableManager<
             id: id,
             email: email,
             displayName: displayName,
-            supabaseId: supabaseId,
+            remoteId: remoteId,
+            age: age,
+            heightCm: heightCm,
+            weightKg: weightKg,
             isAnonymous: isAnonymous,
             createdAt: createdAt,
             updatedAt: updatedAt,
@@ -6550,8 +6691,23 @@ class $$UsersTableFilterComposer
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
 
-  ColumnFilters<String> get supabaseId => $state.composableBuilder(
-      column: $state.table.supabaseId,
+  ColumnFilters<String> get remoteId => $state.composableBuilder(
+      column: $state.table.remoteId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<int> get age => $state.composableBuilder(
+      column: $state.table.age,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<double> get heightCm => $state.composableBuilder(
+      column: $state.table.heightCm,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<double> get weightKg => $state.composableBuilder(
+      column: $state.table.weightKg,
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
 
@@ -6658,8 +6814,23 @@ class $$UsersTableOrderingComposer
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 
-  ColumnOrderings<String> get supabaseId => $state.composableBuilder(
-      column: $state.table.supabaseId,
+  ColumnOrderings<String> get remoteId => $state.composableBuilder(
+      column: $state.table.remoteId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<int> get age => $state.composableBuilder(
+      column: $state.table.age,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<double> get heightCm => $state.composableBuilder(
+      column: $state.table.heightCm,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<double> get weightKg => $state.composableBuilder(
+      column: $state.table.weightKg,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 

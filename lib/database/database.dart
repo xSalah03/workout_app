@@ -49,7 +49,10 @@ class Users extends Table {
   TextColumn get id => text()(); // UUID, primary key
   TextColumn get email => text().nullable()();
   TextColumn get displayName => text().nullable()();
-  TextColumn get supabaseId => text().nullable()(); // Remote ID for sync
+  TextColumn get remoteId => text().nullable()(); // Remote ID for sync
+  IntColumn get age => integer().nullable()(); // User age (13-120)
+  RealColumn get heightCm => real().nullable()(); // Height in cm (50-300)
+  RealColumn get weightKg => real().nullable()(); // Weight in kg (20-500)
   BoolColumn get isAnonymous => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
@@ -340,9 +343,9 @@ class AppSettings extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  // Increment schema version due to Sets -> WorkoutSets rename
+  // Increment schema version for physical data fields (age, height, weight)
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -355,10 +358,7 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
           // Migration: Rename 'sets' table to 'workout_sets'
-          // and add payload column removal from sync_queue
-          await customStatement(
-            'ALTER TABLE sets RENAME TO workout_sets',
-          );
+          await customStatement('ALTER TABLE sets RENAME TO workout_sets');
           // Update indexes
           await customStatement(
             'DROP INDEX IF EXISTS idx_sets_session_exercise_id',
@@ -366,11 +366,26 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_workout_sets_session_exercise_id ON workout_sets(session_exercise_id)',
           );
-          await customStatement(
-            'DROP INDEX IF EXISTS idx_sets_completed_at',
-          );
+          await customStatement('DROP INDEX IF EXISTS idx_sets_completed_at');
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_workout_sets_completed_at ON workout_sets(completed_at)',
+          );
+        }
+        if (from < 3) {
+          // Migration: Add physical data columns to users table
+          await customStatement('ALTER TABLE users ADD COLUMN age INTEGER');
+          await customStatement('ALTER TABLE users ADD COLUMN height_cm REAL');
+          await customStatement('ALTER TABLE users ADD COLUMN weight_kg REAL');
+        }
+        if (from < 4) {
+          // Migration: Rename users.supabase_id to users.remote_id
+          await customStatement(
+            'ALTER TABLE users RENAME COLUMN supabase_id TO remote_id',
+          );
+          // Update index
+          await customStatement('DROP INDEX IF EXISTS idx_users_supabase_id');
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_users_remote_id ON users(remote_id)',
           );
         }
       },
@@ -381,7 +396,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _createIndexes(Migrator m) async {
     // User indexes
     await customStatement(
-      'CREATE INDEX IF NOT EXISTS idx_users_supabase_id ON users(supabase_id)',
+      'CREATE INDEX IF NOT EXISTS idx_users_remote_id ON users(remote_id)',
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_users_dirty ON users(is_dirty) WHERE is_dirty = 1',
@@ -464,9 +479,9 @@ class AppDatabase extends _$AppDatabase {
     switch (table) {
       case SyncableTable.users:
         // Get current syncVersion and increment
-        final current = await (select(users)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          users,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
         await (update(users)..where((t) => t.id.equals(recordId))).write(
           UsersCompanion(
@@ -477,9 +492,9 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.exercises:
-        final current = await (select(exercises)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          exercises,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
         await (update(exercises)..where((t) => t.id.equals(recordId))).write(
           ExercisesCompanion(
@@ -490,9 +505,9 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.workoutPlans:
-        final current = await (select(workoutPlans)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          workoutPlans,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
         await (update(workoutPlans)..where((t) => t.id.equals(recordId))).write(
           WorkoutPlansCompanion(
@@ -503,13 +518,13 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.workoutPlanExercises:
-        final current = await (select(workoutPlanExercises)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          workoutPlanExercises,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
-        await (update(workoutPlanExercises)
-              ..where((t) => t.id.equals(recordId)))
-            .write(
+        await (update(
+          workoutPlanExercises,
+        )..where((t) => t.id.equals(recordId))).write(
           WorkoutPlanExercisesCompanion(
             isDirty: const Value(true),
             updatedAt: Value(now),
@@ -518,12 +533,13 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.workoutSessions:
-        final current = await (select(workoutSessions)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          workoutSessions,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
-        await (update(workoutSessions)..where((t) => t.id.equals(recordId)))
-            .write(
+        await (update(
+          workoutSessions,
+        )..where((t) => t.id.equals(recordId))).write(
           WorkoutSessionsCompanion(
             isDirty: const Value(true),
             updatedAt: Value(now),
@@ -532,12 +548,13 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.sessionExercises:
-        final current = await (select(sessionExercises)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          sessionExercises,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
-        await (update(sessionExercises)..where((t) => t.id.equals(recordId)))
-            .write(
+        await (update(
+          sessionExercises,
+        )..where((t) => t.id.equals(recordId))).write(
           SessionExercisesCompanion(
             isDirty: const Value(true),
             updatedAt: Value(now),
@@ -546,9 +563,9 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.workoutSets:
-        final current = await (select(workoutSets)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          workoutSets,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
         await (update(workoutSets)..where((t) => t.id.equals(recordId))).write(
           WorkoutSetsCompanion(
@@ -559,12 +576,13 @@ class AppDatabase extends _$AppDatabase {
         );
         break;
       case SyncableTable.personalRecords:
-        final current = await (select(personalRecords)
-              ..where((t) => t.id.equals(recordId)))
-            .getSingleOrNull();
+        final current = await (select(
+          personalRecords,
+        )..where((t) => t.id.equals(recordId))).getSingleOrNull();
         final newVersion = (current?.syncVersion ?? 0) + 1;
-        await (update(personalRecords)..where((t) => t.id.equals(recordId)))
-            .write(
+        await (update(
+          personalRecords,
+        )..where((t) => t.id.equals(recordId))).write(
           PersonalRecordsCompanion(
             isDirty: const Value(true),
             syncVersion: Value(newVersion),
@@ -581,10 +599,7 @@ class AppDatabase extends _$AppDatabase {
     switch (table) {
       case SyncableTable.users:
         await (update(users)..where((t) => t.id.equals(recordId))).write(
-          UsersCompanion(
-            isDirty: const Value(false),
-            lastSyncedAt: Value(now),
-          ),
+          UsersCompanion(isDirty: const Value(false), lastSyncedAt: Value(now)),
         );
         break;
       case SyncableTable.exercises:
@@ -606,13 +621,12 @@ class AppDatabase extends _$AppDatabase {
       case SyncableTable.workoutPlanExercises:
         await (update(workoutPlanExercises)
               ..where((t) => t.id.equals(recordId)))
-            .write(
-          const WorkoutPlanExercisesCompanion(isDirty: Value(false)),
-        );
+            .write(const WorkoutPlanExercisesCompanion(isDirty: Value(false)));
         break;
       case SyncableTable.workoutSessions:
-        await (update(workoutSessions)..where((t) => t.id.equals(recordId)))
-            .write(
+        await (update(
+          workoutSessions,
+        )..where((t) => t.id.equals(recordId))).write(
           WorkoutSessionsCompanion(
             isDirty: const Value(false),
             lastSyncedAt: Value(now),
@@ -621,9 +635,7 @@ class AppDatabase extends _$AppDatabase {
         break;
       case SyncableTable.sessionExercises:
         await (update(sessionExercises)..where((t) => t.id.equals(recordId)))
-            .write(
-          const SessionExercisesCompanion(isDirty: Value(false)),
-        );
+            .write(const SessionExercisesCompanion(isDirty: Value(false)));
         break;
       case SyncableTable.workoutSets:
         await (update(workoutSets)..where((t) => t.id.equals(recordId))).write(
@@ -632,9 +644,7 @@ class AppDatabase extends _$AppDatabase {
         break;
       case SyncableTable.personalRecords:
         await (update(personalRecords)..where((t) => t.id.equals(recordId)))
-            .write(
-          const PersonalRecordsCompanion(isDirty: Value(false)),
-        );
+            .write(const PersonalRecordsCompanion(isDirty: Value(false)));
         break;
     }
   }
@@ -690,10 +700,11 @@ class AppDatabase extends _$AppDatabase {
     SyncOperation operation,
   ) async {
     // Check if already queued (avoid duplicates)
-    final existing = await (select(syncQueue)
-          ..where((t) => t.targetTable.equals(table.tableName))
-          ..where((t) => t.recordId.equals(recordId)))
-        .getSingleOrNull();
+    final existing =
+        await (select(syncQueue)
+              ..where((t) => t.targetTable.equals(table.tableName))
+              ..where((t) => t.recordId.equals(recordId)))
+            .getSingleOrNull();
 
     if (existing != null) {
       // Update operation if needed (e.g., insert then update = insert)
@@ -716,9 +727,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// Get pending sync queue items
   Future<List<SyncQueueEntity>> getPendingSyncItems() async {
-    return (select(syncQueue)
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-        .get();
+    return (select(
+      syncQueue,
+    )..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
   }
 
   /// Remove item from sync queue after successful sync
@@ -734,14 +745,14 @@ class AppDatabase extends _$AppDatabase {
   /// Call this whenever sets are added, modified, or deleted.
   Future<void> recalculateSessionStats(String sessionId) async {
     // Get all completed sets for this session
-    final sessionExerciseIds = await (select(sessionExercises)
-          ..where((t) => t.sessionId.equals(sessionId)))
-        .map((e) => e.id)
-        .get();
+    final sessionExerciseIds = await (select(
+      sessionExercises,
+    )..where((t) => t.sessionId.equals(sessionId))).map((e) => e.id).get();
 
     if (sessionExerciseIds.isEmpty) {
-      await (update(workoutSessions)..where((t) => t.id.equals(sessionId)))
-          .write(
+      await (update(
+        workoutSessions,
+      )..where((t) => t.id.equals(sessionId))).write(
         const WorkoutSessionsCompanion(
           totalVolume: Value(0.0),
           totalSets: Value(0),
@@ -752,10 +763,11 @@ class AppDatabase extends _$AppDatabase {
     }
 
     // Calculate totals from WorkoutSets (source of truth)
-    final sets = await (select(workoutSets)
-          ..where((t) => t.sessionExerciseId.isIn(sessionExerciseIds))
-          ..where((t) => t.isCompleted.equals(true)))
-        .get();
+    final sets =
+        await (select(workoutSets)
+              ..where((t) => t.sessionExerciseId.isIn(sessionExerciseIds))
+              ..where((t) => t.isCompleted.equals(true)))
+            .get();
 
     double totalVolume = 0.0;
     int totalSets = sets.length;
@@ -792,25 +804,23 @@ class AppDatabase extends _$AppDatabase {
     await delete(syncQueue).go();
 
     // 2. Delete sets through session exercises
-    final userSessionIds = await (select(workoutSessions)
-          ..where((t) => t.userId.equals(userId)))
-        .map((s) => s.id)
-        .get();
+    final userSessionIds = await (select(
+      workoutSessions,
+    )..where((t) => t.userId.equals(userId))).map((s) => s.id).get();
 
     if (userSessionIds.isNotEmpty) {
-      final sessionExerciseIds = await (select(sessionExercises)
-            ..where((t) => t.sessionId.isIn(userSessionIds)))
-          .map((e) => e.id)
-          .get();
+      final sessionExerciseIds = await (select(
+        sessionExercises,
+      )..where((t) => t.sessionId.isIn(userSessionIds))).map((e) => e.id).get();
 
       if (sessionExerciseIds.isNotEmpty) {
-        await (delete(workoutSets)
-              ..where((t) => t.sessionExerciseId.isIn(sessionExerciseIds)))
-            .go();
+        await (delete(
+          workoutSets,
+        )..where((t) => t.sessionExerciseId.isIn(sessionExerciseIds))).go();
       }
-      await (delete(sessionExercises)
-            ..where((t) => t.sessionId.isIn(userSessionIds)))
-          .go();
+      await (delete(
+        sessionExercises,
+      )..where((t) => t.sessionId.isIn(userSessionIds))).go();
     }
 
     // 3. Delete personal records
@@ -820,15 +830,14 @@ class AppDatabase extends _$AppDatabase {
     await (delete(workoutSessions)..where((t) => t.userId.equals(userId))).go();
 
     // 5. Delete workout plan exercises
-    final userPlanIds = await (select(workoutPlans)
-          ..where((t) => t.userId.equals(userId)))
-        .map((p) => p.id)
-        .get();
+    final userPlanIds = await (select(
+      workoutPlans,
+    )..where((t) => t.userId.equals(userId))).map((p) => p.id).get();
 
     if (userPlanIds.isNotEmpty) {
-      await (delete(workoutPlanExercises)
-            ..where((t) => t.workoutPlanId.isIn(userPlanIds)))
-          .go();
+      await (delete(
+        workoutPlanExercises,
+      )..where((t) => t.workoutPlanId.isIn(userPlanIds))).go();
     }
 
     // 6. Delete workout plans

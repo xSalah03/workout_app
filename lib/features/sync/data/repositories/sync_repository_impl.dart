@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:dartz/dartz.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide User;
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/failures.dart';
@@ -30,7 +31,8 @@ import '../../domain/repositories/sync_repository.dart';
 /// - User can manually resolve if needed
 class SyncRepositoryImpl implements SyncRepository {
   final AppDatabase _database;
-  final SupabaseClient _supabase;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _firebaseAuth;
   final NetworkInfo _networkInfo;
   final SharedPreferences _prefs;
 
@@ -39,11 +41,13 @@ class SyncRepositoryImpl implements SyncRepository {
 
   SyncRepositoryImpl({
     required AppDatabase database,
-    required SupabaseClient supabase,
+    required FirebaseFirestore firestore,
+    required FirebaseAuth firebaseAuth,
     required NetworkInfo networkInfo,
     required SharedPreferences prefs,
   }) : _database = database,
-       _supabase = supabase,
+       _firestore = firestore,
+       _firebaseAuth = firebaseAuth,
        _networkInfo = networkInfo,
        _prefs = prefs {
     // Listen for connectivity changes and auto-sync
@@ -198,36 +202,30 @@ class SyncRepositoryImpl implements SyncRepository {
     }
   }
 
-  /// Upload a single record to remote
   Future<_UploadResult> _uploadRecord(String tableName, dynamic record) async {
-    final remoteTable = _getRemoteTableName(tableName);
+    final remoteCollection = _getRemoteTableName(tableName);
     final recordMap = _recordToMap(tableName, record);
     final recordId = recordMap['id'] as String;
     final localVersion = recordMap['sync_version'] as int? ?? 0;
 
     try {
-      // Check if record exists remotely
-      final existing = await _supabase
-          .from(remoteTable)
-          .select('id, sync_version, updated_at')
-          .eq('local_id', recordId)
-          .maybeSingle();
+      // For Firestore, we use the local ID as the document ID
+      final docRef = _firestore.collection(remoteCollection).doc(recordId);
+      final docSnap = await docRef.get();
 
-      if (existing == null) {
-        // New record - insert
-        await _supabase.from(remoteTable).insert(recordMap);
+      if (!docSnap.exists) {
+        // New record - set
+        await docRef.set(recordMap);
         await _markAsSyncedTyped(tableName, recordId);
         return _UploadResult(recordId: recordId, isSuccess: true);
       }
 
-      final remoteVersion = existing['sync_version'] as int? ?? 0;
+      final data = docSnap.data()!;
+      final remoteVersion = data['sync_version'] as int? ?? 0;
 
       if (localVersion > remoteVersion) {
         // Local is newer - update remote
-        await _supabase
-            .from(remoteTable)
-            .update(recordMap)
-            .eq('local_id', recordId);
+        await docRef.update(recordMap);
         await _markAsSyncedTyped(tableName, recordId);
         return _UploadResult(recordId: recordId, isSuccess: true);
       } else if (remoteVersion > localVersion) {
@@ -236,16 +234,15 @@ class SyncRepositoryImpl implements SyncRepository {
       } else {
         // Same version - compare timestamps
         final localUpdatedAt = recordMap['updated_at'] as String;
-        final remoteUpdatedAt = existing['updated_at'] as String;
+        final remoteUpdatedAt = (data['updated_at'] as Timestamp)
+            .toDate()
+            .toIso8601String();
 
         if (DateTime.parse(
           localUpdatedAt,
         ).isAfter(DateTime.parse(remoteUpdatedAt))) {
           // Local is newer by timestamp
-          await _supabase
-              .from(remoteTable)
-              .update(recordMap)
-              .eq('local_id', recordId);
+          await docRef.update(recordMap);
           await _markAsSyncedTyped(tableName, recordId);
           return _UploadResult(recordId: recordId, isSuccess: true);
         } else {
@@ -302,12 +299,11 @@ class SyncRepositoryImpl implements SyncRepository {
     }
   }
 
-  /// Download changes for a specific table
   Future<_DownloadResult> _downloadTableChanges(
     String tableName,
     DateTime? lastSync,
   ) async {
-    final remoteTable = _getRemoteTableName(tableName);
+    final remoteCollection = _getRemoteTableName(tableName);
     int downloaded = 0;
     int conflicts = 0;
     final errors = <String>[];
@@ -320,22 +316,28 @@ class SyncRepositoryImpl implements SyncRepository {
       }
 
       // Query remote records updated since last sync
-      var query = _supabase.from(remoteTable).select();
+      Query<Map<String, dynamic>> query = _firestore.collection(
+        remoteCollection,
+      );
 
       if (tableName != SyncableTable.users.tableName) {
-        query = query.eq('user_id', userId);
+        query = query.where('user_id', isEqualTo: userId);
+      } else {
+        // For users table, we only care about the current user's profile
+        query = query.where('uid', isEqualTo: userId);
       }
 
       if (lastSync != null) {
-        query = query.gte('updated_at', lastSync.toIso8601String());
+        query = query.where('updated_at', isGreaterThanOrEqualTo: lastSync);
       }
 
-      final remoteRecords = await query;
+      final querySnapshot = await query.get();
 
-      for (final remoteRecord in remoteRecords as List) {
+      for (final doc in querySnapshot.docs) {
         try {
-          final localId = remoteRecord['local_id'] as String?;
-          if (localId == null) continue;
+          final remoteRecord = doc.data();
+          // We'll use the doc ID as the localId if 'local_id' is missing
+          final localId = remoteRecord['local_id'] as String? ?? doc.id;
 
           final result = await _mergeRemoteRecord(
             tableName,
@@ -369,9 +371,16 @@ class SyncRepositoryImpl implements SyncRepository {
     Map<String, dynamic> remoteRecord,
   ) async {
     final remoteVersion = remoteRecord['sync_version'] as int? ?? 0;
-    final remoteUpdatedAt = DateTime.parse(
-      remoteRecord['updated_at'] as String,
-    );
+    final remoteUpdatedAtRaw = remoteRecord['updated_at'];
+    final DateTime remoteUpdatedAt;
+
+    if (remoteUpdatedAtRaw is Timestamp) {
+      remoteUpdatedAt = remoteUpdatedAtRaw.toDate();
+    } else if (remoteUpdatedAtRaw is String) {
+      remoteUpdatedAt = DateTime.parse(remoteUpdatedAtRaw);
+    } else {
+      remoteUpdatedAt = DateTime.now();
+    }
 
     // Get local record
     final localRecord = await _getLocalRecord(tableName, localId);
@@ -510,15 +519,14 @@ class SyncRepositoryImpl implements SyncRepository {
   String _getRemoteTableName(String localTable) {
     switch (localTable) {
       case 'users':
-        return SupabaseConfig.usersTable;
+        return 'users';
       case 'exercises':
-        return SupabaseConfig.exercisesTable;
+        return 'exercises';
       case 'workout_plans':
-        return SupabaseConfig.workoutPlansTable;
+        return 'workout_plans';
       case 'workout_sessions':
-        return SupabaseConfig.workoutSessionsTable;
+        return 'workout_sessions';
       case 'workout_sets':
-        // Map new local table name to remote
         return 'workout_sets';
       default:
         return localTable;
@@ -530,13 +538,13 @@ class SyncRepositoryImpl implements SyncRepository {
     // Each entity type has its own toJson method via Drift
     if (record is UserEntity) {
       return {
-        'id': record.supabaseId ?? record.id,
+        'uid': record.remoteId ?? record.id,
         'local_id': record.id,
         'email': record.email,
         'display_name': record.displayName,
         'is_anonymous': record.isAnonymous,
-        'created_at': record.createdAt.toIso8601String(),
-        'updated_at': record.updatedAt.toIso8601String(),
+        'created_at': record.createdAt,
+        'updated_at': record.updatedAt,
         'sync_version': record.syncVersion,
       };
     }
@@ -551,8 +559,7 @@ class SyncRepositoryImpl implements SyncRepository {
   }
 
   Future<String?> _getCurrentUserId() async {
-    final user = await (_database.select(_database.users)).getSingleOrNull();
-    return user?.id;
+    return _firebaseAuth.currentUser?.uid;
   }
 
   Future<Map<String, dynamic>?> _getLocalRecord(

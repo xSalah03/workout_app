@@ -50,11 +50,17 @@ class SignUpWithEmail {
     required String email,
     required String password,
     required String username,
+    required int age,
+    required double heightCm,
+    required double weightKg,
     String? avatarUrl,
   }) => _repository.signUpWithEmail(
     email: email,
     password: password,
     username: username,
+    age: age,
+    heightCm: heightCm,
+    weightKg: weightKg,
     avatarUrl: avatarUrl,
   );
 }
@@ -92,6 +98,16 @@ class SendPasswordResetEmail {
   SendPasswordResetEmail(this._repository);
 
   ResultVoid call(String email) => _repository.sendPasswordResetEmail(email);
+}
+
+/// Reset password use case (after user follows reset link)
+class ResetPassword {
+  final AuthRepository _repository;
+
+  ResetPassword(this._repository);
+
+  ResultVoid call({required String newPassword, String? code}) =>
+      _repository.resetPassword(newPassword: newPassword, code: code);
 }
 
 /// Update user profile use case
