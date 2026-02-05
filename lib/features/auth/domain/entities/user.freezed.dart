@@ -19,7 +19,10 @@ mixin _$User {
   String get id => throw _privateConstructorUsedError;
   String? get email => throw _privateConstructorUsedError;
   String? get displayName => throw _privateConstructorUsedError;
-  String? get supabaseId => throw _privateConstructorUsedError;
+  String? get remoteId => throw _privateConstructorUsedError;
+  int? get age => throw _privateConstructorUsedError;
+  double? get heightCm => throw _privateConstructorUsedError;
+  double? get weightKg => throw _privateConstructorUsedError;
   bool get isAnonymous => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime get updatedAt => throw _privateConstructorUsedError;
@@ -40,7 +43,10 @@ abstract class $UserCopyWith<$Res> {
       {String id,
       String? email,
       String? displayName,
-      String? supabaseId,
+      String? remoteId,
+      int? age,
+      double? heightCm,
+      double? weightKg,
       bool isAnonymous,
       DateTime createdAt,
       DateTime updatedAt,
@@ -65,7 +71,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? id = null,
     Object? email = freezed,
     Object? displayName = freezed,
-    Object? supabaseId = freezed,
+    Object? remoteId = freezed,
+    Object? age = freezed,
+    Object? heightCm = freezed,
+    Object? weightKg = freezed,
     Object? isAnonymous = null,
     Object? createdAt = null,
     Object? updatedAt = null,
@@ -86,10 +95,22 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           ? _value.displayName
           : displayName // ignore: cast_nullable_to_non_nullable
               as String?,
-      supabaseId: freezed == supabaseId
-          ? _value.supabaseId
-          : supabaseId // ignore: cast_nullable_to_non_nullable
+      remoteId: freezed == remoteId
+          ? _value.remoteId
+          : remoteId // ignore: cast_nullable_to_non_nullable
               as String?,
+      age: freezed == age
+          ? _value.age
+          : age // ignore: cast_nullable_to_non_nullable
+              as int?,
+      heightCm: freezed == heightCm
+          ? _value.heightCm
+          : heightCm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      weightKg: freezed == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double?,
       isAnonymous: null == isAnonymous
           ? _value.isAnonymous
           : isAnonymous // ignore: cast_nullable_to_non_nullable
@@ -129,7 +150,10 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       {String id,
       String? email,
       String? displayName,
-      String? supabaseId,
+      String? remoteId,
+      int? age,
+      double? heightCm,
+      double? weightKg,
       bool isAnonymous,
       DateTime createdAt,
       DateTime updatedAt,
@@ -151,7 +175,10 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? id = null,
     Object? email = freezed,
     Object? displayName = freezed,
-    Object? supabaseId = freezed,
+    Object? remoteId = freezed,
+    Object? age = freezed,
+    Object? heightCm = freezed,
+    Object? weightKg = freezed,
     Object? isAnonymous = null,
     Object? createdAt = null,
     Object? updatedAt = null,
@@ -172,10 +199,22 @@ class __$$UserImplCopyWithImpl<$Res>
           ? _value.displayName
           : displayName // ignore: cast_nullable_to_non_nullable
               as String?,
-      supabaseId: freezed == supabaseId
-          ? _value.supabaseId
-          : supabaseId // ignore: cast_nullable_to_non_nullable
+      remoteId: freezed == remoteId
+          ? _value.remoteId
+          : remoteId // ignore: cast_nullable_to_non_nullable
               as String?,
+      age: freezed == age
+          ? _value.age
+          : age // ignore: cast_nullable_to_non_nullable
+              as int?,
+      heightCm: freezed == heightCm
+          ? _value.heightCm
+          : heightCm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      weightKg: freezed == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double?,
       isAnonymous: null == isAnonymous
           ? _value.isAnonymous
           : isAnonymous // ignore: cast_nullable_to_non_nullable
@@ -211,7 +250,10 @@ class _$UserImpl extends _User {
       {required this.id,
       this.email,
       this.displayName,
-      this.supabaseId,
+      this.remoteId,
+      this.age,
+      this.heightCm,
+      this.weightKg,
       this.isAnonymous = true,
       required this.createdAt,
       required this.updatedAt,
@@ -227,7 +269,13 @@ class _$UserImpl extends _User {
   @override
   final String? displayName;
   @override
-  final String? supabaseId;
+  final String? remoteId;
+  @override
+  final int? age;
+  @override
+  final double? heightCm;
+  @override
+  final double? weightKg;
   @override
   @JsonKey()
   final bool isAnonymous;
@@ -246,7 +294,7 @@ class _$UserImpl extends _User {
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, displayName: $displayName, supabaseId: $supabaseId, isAnonymous: $isAnonymous, createdAt: $createdAt, updatedAt: $updatedAt, isDirty: $isDirty, syncVersion: $syncVersion, lastSyncedAt: $lastSyncedAt)';
+    return 'User(id: $id, email: $email, displayName: $displayName, remoteId: $remoteId, age: $age, heightCm: $heightCm, weightKg: $weightKg, isAnonymous: $isAnonymous, createdAt: $createdAt, updatedAt: $updatedAt, isDirty: $isDirty, syncVersion: $syncVersion, lastSyncedAt: $lastSyncedAt)';
   }
 
   @override
@@ -258,8 +306,13 @@ class _$UserImpl extends _User {
             (identical(other.email, email) || other.email == email) &&
             (identical(other.displayName, displayName) ||
                 other.displayName == displayName) &&
-            (identical(other.supabaseId, supabaseId) ||
-                other.supabaseId == supabaseId) &&
+            (identical(other.remoteId, remoteId) ||
+                other.remoteId == remoteId) &&
+            (identical(other.age, age) || other.age == age) &&
+            (identical(other.heightCm, heightCm) ||
+                other.heightCm == heightCm) &&
+            (identical(other.weightKg, weightKg) ||
+                other.weightKg == weightKg) &&
             (identical(other.isAnonymous, isAnonymous) ||
                 other.isAnonymous == isAnonymous) &&
             (identical(other.createdAt, createdAt) ||
@@ -279,7 +332,10 @@ class _$UserImpl extends _User {
       id,
       email,
       displayName,
-      supabaseId,
+      remoteId,
+      age,
+      heightCm,
+      weightKg,
       isAnonymous,
       createdAt,
       updatedAt,
@@ -299,7 +355,10 @@ abstract class _User extends User {
       {required final String id,
       final String? email,
       final String? displayName,
-      final String? supabaseId,
+      final String? remoteId,
+      final int? age,
+      final double? heightCm,
+      final double? weightKg,
       final bool isAnonymous,
       required final DateTime createdAt,
       required final DateTime updatedAt,
@@ -315,7 +374,13 @@ abstract class _User extends User {
   @override
   String? get displayName;
   @override
-  String? get supabaseId;
+  String? get remoteId;
+  @override
+  int? get age;
+  @override
+  double? get heightCm;
+  @override
+  double? get weightKg;
   @override
   bool get isAnonymous;
   @override

@@ -1,9 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../database/database.dart';
 import '../network/network_info.dart';
+import '../services/deep_link_service.dart';
 
 // ============================================================
 // CORE PROVIDERS
@@ -16,9 +18,14 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
-/// Supabase client provider
-final supabaseProvider = Provider<SupabaseClient>((ref) {
-  return Supabase.instance.client;
+/// Firebase Auth provider
+final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
+  return FirebaseAuth.instance;
+});
+
+/// Firestore provider
+final firestoreProvider = Provider<FirebaseFirestore>((ref) {
+  return FirebaseFirestore.instance;
 });
 
 /// SharedPreferences provider
@@ -43,4 +50,11 @@ final connectivityProvider = StreamProvider<bool>((ref) {
 final isConnectedProvider = FutureProvider<bool>((ref) async {
   final networkInfo = ref.watch(networkInfoProvider);
   return networkInfo.isConnected;
+});
+
+/// Deep Link Service provider
+final deepLinkServiceProvider = Provider<DeepLinkService>((ref) {
+  final service = DeepLinkService();
+  ref.onDispose(() => service.dispose());
+  return service;
 });

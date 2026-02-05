@@ -18,8 +18,10 @@ final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((ref) {
 });
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
-  final supabase = ref.watch(supabaseProvider);
-  return AuthRemoteDataSourceImpl(supabase: supabase);
+  return AuthRemoteDataSourceImpl(
+    firebaseAuth: ref.watch(firebaseAuthProvider),
+    firestore: ref.watch(firestoreProvider),
+  );
 });
 
 // ============================================================
@@ -72,6 +74,14 @@ final upgradeAnonymousAccountProvider = Provider<UpgradeAnonymousAccount>((
 
 final signOutProvider = Provider<SignOut>((ref) {
   return SignOut(ref.watch(authRepositoryProvider));
+});
+
+final sendPasswordResetEmailProvider = Provider<SendPasswordResetEmail>((ref) {
+  return SendPasswordResetEmail(ref.watch(authRepositoryProvider));
+});
+
+final resetPasswordProvider = Provider<ResetPassword>((ref) {
+  return ResetPassword(ref.watch(authRepositoryProvider));
 });
 
 // ============================================================
@@ -167,10 +177,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
 
   /// Sign up with email
   /// On success, user is auto signed in and redirected
+  /// Includes physical data for fitness tracking features
   Future<void> signUpWithEmail({
     required String email,
     required String password,
     required String username,
+    required int age,
+    required double heightCm,
+    required double weightKg,
     String? avatarUrl,
   }) async {
     state = const AsyncValue.loading();
@@ -178,6 +192,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       email: email,
       password: password,
       username: username,
+      age: age,
+      heightCm: heightCm,
+      weightKg: weightKg,
       avatarUrl: avatarUrl,
     );
     result.fold(

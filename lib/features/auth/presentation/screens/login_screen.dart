@@ -7,6 +7,7 @@ import '../../../../core/extensions/context_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
 
 /// Authentication screen with Sign In and Sign Up
 ///
@@ -27,6 +28,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
 
   bool _isLogin = true;
   bool _obscurePassword = true;
@@ -42,6 +46,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _usernameController.dispose();
+    _ageController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
@@ -92,6 +99,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               email: _emailController.text.trim(),
               password: _passwordController.text,
               username: _usernameController.text.trim(),
+              age: int.parse(_ageController.text),
+              heightCm: double.parse(_heightController.text),
+              weightKg: double.parse(_weightController.text),
             );
       }
     } finally {
@@ -120,6 +130,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _formKey.currentState?.reset();
       _confirmPasswordController.clear();
       _usernameController.clear();
+      _ageController.clear();
+      _heightController.clear();
+      _weightController.clear();
     });
   }
 
@@ -156,12 +169,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         switch (error.code) {
           case 'EMAIL_VERIFICATION_REQUIRED':
             context.showSuccessSnackBar(
-              'Check your email to verify your account. You can sign in after verification.',
+              'A verification email has been sent to ${_emailController.text}. Please check your inbox.',
             );
+            // Switch back to login mode so they can sign in after verification
+            if (!_isLogin) _switchMode();
             break;
           case 'EMAIL_NOT_CONFIRMED':
             setState(() => _showResendVerification = true);
-            context.showErrorSnackBar(error.message);
+            context.showErrorSnackBar(
+              'Please verify your email before signing in.',
+            );
+            break;
+          case 'INVALID_CREDENTIALS':
+            context.showErrorSnackBar('Invalid email or password');
             break;
           case 'EMAIL_RATE_LIMIT':
             context.showErrorSnackBar(
@@ -233,6 +253,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     validator: Validators.username,
                   ),
                   const SizedBox(height: 16),
+
+                  // Physical Data Grid
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Age',
+                            hintText: 'Years',
+                            prefixIcon: Icon(Icons.calendar_today_outlined),
+                          ),
+                          validator: Validators.age,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _heightController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Height',
+                            hintText: 'cm',
+                            prefixIcon: Icon(Icons.height),
+                          ),
+                          validator: Validators.heightCm,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _weightController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Weight',
+                      hintText: 'kg',
+                      prefixIcon: Icon(Icons.monitor_weight_outlined),
+                    ),
+                    validator: Validators.bodyWeight,
+                  ),
+                  const SizedBox(height: 16),
                 ],
 
                 // Password field
@@ -244,8 +314,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText:
-                        'Min ${AppConstants.minPasswordLength} characters',
+                    // Only show password hints during sign up
+                    hintText: _isLogin
+                        ? 'Enter your password'
+                        : 'Min ${AppConstants.minPasswordLength} characters, include uppercase, lowercase, number',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -258,7 +330,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                     ),
                   ),
-                  validator: Validators.password,
+                  // Use minimal validation for login, strict for sign up
+                  validator: _isLogin
+                      ? Validators.passwordLogin
+                      : Validators.passwordStrength,
                   onFieldSubmitted: (_) {
                     if (_isLogin) {
                       _submitForm();
@@ -267,7 +342,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 16),
+
+                // Forgot Password link - Login only
+                if (_isLogin) ...[
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ] else
+                  const SizedBox(height: 16),
 
                 // Password confirmation - Sign Up only
                 if (!_isLogin) ...[

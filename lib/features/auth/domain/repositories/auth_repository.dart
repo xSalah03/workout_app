@@ -21,10 +21,14 @@ abstract class AuthRepository {
 
   /// Sign up with email and password
   /// [username] is required and must be unique
+  /// Physical data is required for fitness tracking features
   ResultFuture<User> signUpWithEmail({
     required String email,
     required String password,
     required String username,
+    required int age,
+    required double heightCm,
+    required double weightKg,
     String? avatarUrl,
   });
 
@@ -40,6 +44,9 @@ abstract class AuthRepository {
 
   /// Send password reset email
   ResultVoid sendPasswordResetEmail(String email);
+
+  /// Reset password (either for authenticated user or with code from email)
+  ResultVoid resetPassword({required String newPassword, String? code});
 
   /// Resend verification email for unconfirmed sign-ups
   ResultVoid resendVerificationEmail(String email);
